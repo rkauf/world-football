@@ -1,0 +1,37 @@
+*.csv
+*.rdata
+*.rds
+*.gz
+*.Rproj.user
+*.Rhistory
+*.Rbuildignore
+.Rproj.user/*
+# History files
+.Rhistory
+.Rapp.history
+# Example code in package build process
+*-Ex.R
+# RStudio files
+.Rproj.user/
+.Rproj.user
+*.Rproj
+~$*
+*/~$*.xlsx
+*cache/
+Encore/San Antonio Spurs/data/*.csv
+Business Metric Models/Dev Ops - Server Demand/data/mobile_web*
+Business Metric Models/Dev Ops - Server Demand/data/ticket_service*
+*.RDS
+*pycache
+playground/*
+packrat/lib/*
+packrat/lib*/
+packrat/lib-R/*
+packrat/lib-R/
+packrat/src/
+packrat/
+packrat/*
+/packrat/
+/packrat/*
+*.Rprofile
+!packrat/packrat.lock
