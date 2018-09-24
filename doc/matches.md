@@ -4,16 +4,12 @@
 
 
 ```r
-knitr::opts_chunk$set(dpi = 200, fig.width = 8, fig.height = 5, message = F, warning = F)
-#ezspin_pt(file_name = "matches", project_directory = ".", file_folder = "munge", keep_html = F)
-```
-
-```r
 library(tidyverse)
 library(tidymodels)
 library(expappr)
 library(ggthemes)
 ```
+
 
 ```r
 spi_matches <- readRDS("./data/fivethirtyeight/spi_matches2018-09-22.RDS") %>% 
@@ -149,6 +145,7 @@ spi_matches %>%
 
 I've confirmed via google that team1 was the home team for each of these games. I supposed there will be some games in the dataset played on neutral grounds as well. 
 
+### Tidying Up
 Given the nastiness cleaning with team numbers above, I'll probably want to create a tidy version of this dataset. What should that look like? 
 - 2 Records for each game
 - 1 "team" column
@@ -159,9 +156,35 @@ Given the nastiness cleaning with team numbers above, I'll probably want to crea
 
 
 
+```r
+spi_matches %>% 
+  filter(match_id == 1) %>% 
+  gather(key, val,team1:adj_score2) %>% 
+  mutate(team_num = str_remove_all(key, "[^0-9]"),
+         key_adj = str_remove_all(key, "[0-9]")) %>% 
+  select(-key) %>% 
+  spread(team_num, val)
+```
 
+```
+## # A tibble: 10 x 8
+##    date       league_id league    match_id key_adj  V1     `1`   `2`      
+##    <date>         <int> <chr>        <int> <chr>    <chr>  <chr> <chr>    
+##  1 2016-08-12      1843 French L…        1 adj_sco… <NA>   0     1.05     
+##  2 2016-08-12      1843 French L…        1 importa… <NA>   32.4  67.7     
+##  3 2016-08-12      1843 French L…        1 nsxg     <NA>   0.43  0.45     
+##  4 2016-08-12      1843 French L…        1 prob     <NA>   0.04… 0.838    
+##  5 2016-08-12      1843 French L…        1 probtie  0.1157 <NA>  <NA>     
+##  6 2016-08-12      1843 French L…        1 proj_sc… <NA>   0.91  2.36     
+##  7 2016-08-12      1843 French L…        1 score    <NA>   0     1        
+##  8 2016-08-12      1843 French L…        1 spi      <NA>   51.16 85.68    
+##  9 2016-08-12      1843 French L…        1 team     <NA>   Bast… Paris Sa…
+## 10 2016-08-12      1843 French L…        1 xg       <NA>   0.97  0.63
+```
 
-
+```r
+### this needs work^^ 
+```
 
 
 ## Analysis Ideas

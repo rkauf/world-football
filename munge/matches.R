@@ -1,15 +1,16 @@
 #' # Match Analysis
 #' ### Digging through Five Thirty Eight's match data
 #' 
-#+settings
-knitr::opts_chunk$set(dpi = 200, fig.width = 8, fig.height = 5, message = F, warning = F)
-#ezspin_pt(file_name = "matches", project_directory = ".", file_folder = "munge", keep_html = F)
 
 #+ packages
 library(tidyverse)
 library(tidymodels)
 library(expappr)
 library(ggthemes)
+
+#+settings, echo = F
+knitr::opts_chunk$set(dpi = 200, fig.width = 8, fig.height = 5, message = F, warning = F)
+#ezspin_pt(file_name = "matches", project_directory = ".", file_folder = "munge", keep_html = F)
 
 #+ download_data
 spi_matches <- readRDS("./data/fivethirtyeight/spi_matches2018-09-22.RDS") %>% 
@@ -59,6 +60,7 @@ spi_matches %>%
 
 #' I've confirmed via google that team1 was the home team for each of these games. I supposed there will be some games in the dataset played on neutral grounds as well. 
 #' 
+#' ### Tidying Up
 #' Given the nastiness cleaning with team numbers above, I'll probably want to create a tidy version of this dataset. What should that look like? 
 #' - 2 Records for each game
 #' - 1 "team" column
@@ -67,12 +69,16 @@ spi_matches %>%
 #' - Win or Loss
 #' - Should allow me to easily calculate difference between spi and opponent spi this way. Maybe I should just include the difference, not the actual opponent data?
 #' 
-#' 
-#' 
-#' 
-#' 
-#' 
-#' 
+
+spi_matches %>% 
+  filter(match_id == 1) %>% 
+  gather(key, val,team1:adj_score2) %>% 
+  mutate(team_num = str_remove_all(key, "[^0-9]"),
+         key_adj = str_remove_all(key, "[0-9]")) %>% 
+  select(-key) %>% 
+  spread(team_num, val)
+### this needs work^^ 
+
 #' 
 #' ## Analysis Ideas
 #' - Predicting promotion and relegation
