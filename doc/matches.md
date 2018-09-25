@@ -157,33 +157,107 @@ Given the nastiness cleaning with team numbers above, I'll probably want to crea
 
 
 ```r
-spi_matches %>% 
-  filter(match_id == 1) %>% 
+these_cols <- c("spi", "prob", "proj_score", "importance", "score", "xg", "nsxg", "adj_score")
+
+home_teams <- spi_matches %>% 
   gather(key, val,team1:adj_score2) %>% 
   mutate(team_num = str_remove_all(key, "[^0-9]"),
          key_adj = str_remove_all(key, "[0-9]")) %>% 
-  select(-key) %>% 
-  spread(team_num, val)
+  filter(team_num == 1) %>% 
+  select(-team_num, -key) %>% 
+  spread(key_adj, val) %>% 
+  mutate(home = 1) %>% 
+  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score) %>% 
+  mutate_at(these_cols, as.double) %>% 
+  mutate(score = as.integer(score))
+
+away_teams <- spi_matches %>% 
+  gather(key, val,team1:adj_score2) %>% 
+  mutate(team_num = str_remove_all(key, "[^0-9]"),
+         key_adj = str_remove_all(key, "[0-9]")) %>% 
+  filter(team_num == 2) %>% 
+  select(-team_num, -key) %>% 
+  spread(key_adj, val) %>% 
+  mutate(home = 0) %>% 
+  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score) %>% 
+  mutate_at(these_cols, as.double) %>% 
+  mutate(score = as.integer(score))
+
+
+ 
+comb_home_away <- function(first, second) {
+  joinable <- function(df){
+    new_df <- df %>% 
+    select(match_id,
+           opp_team = team,
+           opp_spi = spi,
+           opp_prob = prob,
+           opp_proj_score = proj_score,
+           opp_importance = importance,
+           opp_score = score,
+           opp_xg = xg,
+           opp_nsxg = nsxg,
+           opp_adj_score = adj_score)
+    }
+  
+  calc_diffs <- function(df1, df2) {
+    clean1 <- df1 %>% 
+    inner_join(joinable(df2), by = "match_id") %>% 
+    mutate(diff_score = score - opp_score,
+           prob_tie = 1 - prob - opp_prob,
+           diff_prob = prob - opp_prob,
+           diff_spi = spi - opp_spi,
+           diff_proj_score = proj_score - opp_proj_score,
+           diff_importance = importance - opp_importance,
+           diff_xg = xg - opp_xg,
+           diff_nsxg = nsxg - opp_nsxg,
+           diff_adj_score = adj_score - opp_adj_score
+           ) %>% 
+      mutate(match_result = case_when(diff_score == 0 ~ "tie",
+                                    diff_score > 0 ~ "win",
+                                    TRUE ~ "lose"),
+           match_points = case_when(match_result == "win" ~ 3,
+                                    match_result == "tie" ~ 1,
+                                    TRUE ~ 0)) %>% 
+      select(match_id, date, league, league_id, team, opp_team, home, score, opp_score, diff_score, match_result, match_points, prob, opp_prob, prob_tie, diff_prob, spi, opp_spi, diff_spi, proj_score, opp_proj_score, diff_proj_score, importance, opp_importance, diff_importance, xg, opp_xg, diff_xg, nsxg, opp_nsxg, diff_nsxg, adj_score, opp_adj_score, diff_adj_score)
+  }
+  
+  final <- bind_rows(calc_diffs(first, second),
+            calc_diffs(second, first)) %>% 
+    arrange(match_id)
+  print(final)
+  
+}
+
+spi_matches_tidy <- comb_home_away(home_teams, away_teams)
 ```
 
 ```
-## # A tibble: 10 x 8
-##    date       league_id league    match_id key_adj  V1     `1`   `2`      
-##    <date>         <int> <chr>        <int> <chr>    <chr>  <chr> <chr>    
-##  1 2016-08-12      1843 French L…        1 adj_sco… <NA>   0     1.05     
-##  2 2016-08-12      1843 French L…        1 importa… <NA>   32.4  67.7     
-##  3 2016-08-12      1843 French L…        1 nsxg     <NA>   0.43  0.45     
-##  4 2016-08-12      1843 French L…        1 prob     <NA>   0.04… 0.838    
-##  5 2016-08-12      1843 French L…        1 probtie  0.1157 <NA>  <NA>     
-##  6 2016-08-12      1843 French L…        1 proj_sc… <NA>   0.91  2.36     
-##  7 2016-08-12      1843 French L…        1 score    <NA>   0     1        
-##  8 2016-08-12      1843 French L…        1 spi      <NA>   51.16 85.68    
-##  9 2016-08-12      1843 French L…        1 team     <NA>   Bast… Paris Sa…
-## 10 2016-08-12      1843 French L…        1 xg       <NA>   0.97  0.63
+## # A tibble: 41,758 x 34
+##    match_id date       league league_id team  opp_team  home score
+##       <int> <date>     <chr>      <int> <chr> <chr>    <dbl> <int>
+##  1        1 2016-08-12 Frenc…      1843 Bast… Paris S…     1     0
+##  2        1 2016-08-12 Frenc…      1843 Pari… Bastia       0     1
+##  3        2 2016-08-12 Frenc…      1843 AS M… Guingamp     1     2
+##  4        2 2016-08-12 Frenc…      1843 Guin… AS Mona…     0     2
+##  5        3 2016-08-13 Barcl…      2411 Hull… Leicest…     1     2
+##  6        3 2016-08-13 Barcl…      2411 Leic… Hull Ci…     0     1
+##  7        4 2016-08-13 Barcl…      2411 Burn… Swansea…     1     0
+##  8        4 2016-08-13 Barcl…      2411 Swan… Burnley      0     1
+##  9        5 2016-08-13 Barcl…      2411 Midd… Stoke C…     1     1
+## 10        5 2016-08-13 Barcl…      2411 Stok… Middles…     0     1
+## # ... with 41,748 more rows, and 26 more variables: opp_score <int>,
+## #   diff_score <int>, match_result <chr>, match_points <dbl>, prob <dbl>,
+## #   opp_prob <dbl>, prob_tie <dbl>, diff_prob <dbl>, spi <dbl>,
+## #   opp_spi <dbl>, diff_spi <dbl>, proj_score <dbl>, opp_proj_score <dbl>,
+## #   diff_proj_score <dbl>, importance <dbl>, opp_importance <dbl>,
+## #   diff_importance <dbl>, xg <dbl>, opp_xg <dbl>, diff_xg <dbl>,
+## #   nsxg <dbl>, opp_nsxg <dbl>, diff_nsxg <dbl>, adj_score <dbl>,
+## #   opp_adj_score <dbl>, diff_adj_score <dbl>
 ```
 
 ```r
-### this needs work^^ 
+#saveRDS(spi_matches_tidy, "./data/spi_matches_tidy.RDS")
 ```
 
 
