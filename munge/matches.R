@@ -7,6 +7,9 @@ library(tidyverse)
 library(tidymodels)
 library(expappr)
 library(ggthemes)
+library(lubridate)
+
+source("munge/helpers.R")
 
 #+settings, echo = F
 knitr::opts_chunk$set(dpi = 200, fig.width = 8, fig.height = 5, message = F, warning = F)
@@ -96,24 +99,39 @@ away_teams <- spi_matches %>%
   mutate_at(these_cols, as.double) %>% 
   mutate(score = as.integer(score))
 
-source("munge/helpers.R")
-spi_matches_tidy <- comb_home_away(home_teams, away_teams)
-#saveRDS(spi_matches_tidy, "./data/spi_matches_tidy.RDS")
+
+spi_matches_combined <- comb_home_away(home_teams, away_teams)
 
 # Season is the main other piece of data I'd like to add at this time
+spi_matches %>%
+  mutate(month = lubridate::month(date, label = TRUE),
+         year = lubridate::year(date)) %>% 
+  count(year, month) %>% 
+  ggplot(aes(month, n)) +
+  geom_col() +
+  theme_fivethirtyeight() +
+  ggtitle("Total Matches by Month") +
+  scale_y_continuous(labels = scales::comma, name = "Num Matches")
 
+spi_matches2 <- spi_matches %>% 
+  mutate(season = add_season(date))
 
+spi_matches_tidy <- spi_matches_combined %>% 
+  mutate(season = add_season(date))
 
+#saveRDS(spi_matches_tidy, "./data/fivethirtyeight/spi_matches_tidy.RDS")
+  
 #' #### Tidy Summary
 #' Wow, tidying this data up was much more difficult than expected, but I think I'm a good place now with it. Each match will have 2 records (one for each team). This will make it easier to filter by team and quickly analyze wins / losses and compare to the opponent. New fields:
 #' - `home` - 1 (home) or 0 (away)
 #' - `diff` - column for every metric (team's minus opponent's)
 #' - `result` - win, loss, or tie
 #' - `points` - 3 for a win, 1 for a tie, 0 for a loss
-
+#' - `season` - factors from 2014-15 to 2021-22
 
 #' 
 #' ## Analysis Ideas
 #' - Predicting promotion and relegation
 #' - Classifying which games were played in neutral venues
 #' - Predicting winners
+#' - How does time between previous game affect team performance?

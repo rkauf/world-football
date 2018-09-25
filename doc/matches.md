@@ -8,6 +8,9 @@ library(tidyverse)
 library(tidymodels)
 library(expappr)
 library(ggthemes)
+library(lubridate)
+
+source("munge/helpers.R")
 ```
 
 
@@ -184,84 +187,42 @@ away_teams <- spi_matches %>%
   mutate(score = as.integer(score))
 
 
- 
-comb_home_away <- function(first, second) {
-  joinable <- function(df){
-    new_df <- df %>% 
-    select(match_id,
-           opp_team = team,
-           opp_spi = spi,
-           opp_prob = prob,
-           opp_proj_score = proj_score,
-           opp_importance = importance,
-           opp_score = score,
-           opp_xg = xg,
-           opp_nsxg = nsxg,
-           opp_adj_score = adj_score)
-    }
-  
-  calc_diffs <- function(df1, df2) {
-    clean1 <- df1 %>% 
-    inner_join(joinable(df2), by = "match_id") %>% 
-    mutate(diff_score = score - opp_score,
-           prob_tie = 1 - prob - opp_prob,
-           diff_prob = prob - opp_prob,
-           diff_spi = spi - opp_spi,
-           diff_proj_score = proj_score - opp_proj_score,
-           diff_importance = importance - opp_importance,
-           diff_xg = xg - opp_xg,
-           diff_nsxg = nsxg - opp_nsxg,
-           diff_adj_score = adj_score - opp_adj_score
-           ) %>% 
-      mutate(match_result = case_when(diff_score == 0 ~ "tie",
-                                    diff_score > 0 ~ "win",
-                                    TRUE ~ "lose"),
-           match_points = case_when(match_result == "win" ~ 3,
-                                    match_result == "tie" ~ 1,
-                                    TRUE ~ 0)) %>% 
-      select(match_id, date, league, league_id, team, opp_team, home, score, opp_score, diff_score, match_result, match_points, prob, opp_prob, prob_tie, diff_prob, spi, opp_spi, diff_spi, proj_score, opp_proj_score, diff_proj_score, importance, opp_importance, diff_importance, xg, opp_xg, diff_xg, nsxg, opp_nsxg, diff_nsxg, adj_score, opp_adj_score, diff_adj_score)
-  }
-  
-  final <- bind_rows(calc_diffs(first, second),
-            calc_diffs(second, first)) %>% 
-    arrange(match_id)
-  print(final)
-  
-}
+spi_matches_combined <- comb_home_away(home_teams, away_teams)
 
-spi_matches_tidy <- comb_home_away(home_teams, away_teams)
+# Season is the main other piece of data I'd like to add at this time
+spi_matches %>%
+  mutate(month = lubridate::month(date, label = TRUE),
+         year = lubridate::year(date)) %>% 
+  count(year, month) %>% 
+  ggplot(aes(month, n)) +
+  geom_col() +
+  theme_fivethirtyeight() +
+  ggtitle("Total Matches by Month") +
+  scale_y_continuous(labels = scales::comma, name = "Num Matches")
 ```
 
-```
-## # A tibble: 41,758 x 34
-##    match_id date       league league_id team  opp_team  home score
-##       <int> <date>     <chr>      <int> <chr> <chr>    <dbl> <int>
-##  1        1 2016-08-12 Frenc…      1843 Bast… Paris S…     1     0
-##  2        1 2016-08-12 Frenc…      1843 Pari… Bastia       0     1
-##  3        2 2016-08-12 Frenc…      1843 AS M… Guingamp     1     2
-##  4        2 2016-08-12 Frenc…      1843 Guin… AS Mona…     0     2
-##  5        3 2016-08-13 Barcl…      2411 Hull… Leicest…     1     2
-##  6        3 2016-08-13 Barcl…      2411 Leic… Hull Ci…     0     1
-##  7        4 2016-08-13 Barcl…      2411 Burn… Swansea…     1     0
-##  8        4 2016-08-13 Barcl…      2411 Swan… Burnley      0     1
-##  9        5 2016-08-13 Barcl…      2411 Midd… Stoke C…     1     1
-## 10        5 2016-08-13 Barcl…      2411 Stok… Middles…     0     1
-## # ... with 41,748 more rows, and 26 more variables: opp_score <int>,
-## #   diff_score <int>, match_result <chr>, match_points <dbl>, prob <dbl>,
-## #   opp_prob <dbl>, prob_tie <dbl>, diff_prob <dbl>, spi <dbl>,
-## #   opp_spi <dbl>, diff_spi <dbl>, proj_score <dbl>, opp_proj_score <dbl>,
-## #   diff_proj_score <dbl>, importance <dbl>, opp_importance <dbl>,
-## #   diff_importance <dbl>, xg <dbl>, opp_xg <dbl>, diff_xg <dbl>,
-## #   nsxg <dbl>, opp_nsxg <dbl>, diff_nsxg <dbl>, adj_score <dbl>,
-## #   opp_adj_score <dbl>, diff_adj_score <dbl>
-```
+![plot of chunk unnamed-chunk-5](../graphs/matches//unnamed-chunk-5-1.png)
 
 ```r
-#saveRDS(spi_matches_tidy, "./data/spi_matches_tidy.RDS")
+spi_matches2 <- spi_matches %>% 
+  mutate(season = add_season(date))
+
+spi_matches_tidy <- spi_matches_combined %>% 
+  mutate(season = add_season(date))
+
+#saveRDS(spi_matches_tidy, "./data/fivethirtyeight/spi_matches_tidy.RDS")
 ```
 
+#### Tidy Summary
+Wow, tidying this data up was much more difficult than expected, but I think I'm a good place now with it. Each match will have 2 records (one for each team). This will make it easier to filter by team and quickly analyze wins / losses and compare to the opponent. New fields:
+- `home` - 1 (home) or 0 (away)
+- `diff` - column for every metric (team's minus opponent's)
+- `result` - win, loss, or tie
+- `points` - 3 for a win, 1 for a tie, 0 for a loss
+- `season` - factors from 2014-15 to 2021-22
 
 ## Analysis Ideas
 - Predicting promotion and relegation
 - Classifying which games were played in neutral venues
 - Predicting winners
+- How does time between previous game affect team performance?
