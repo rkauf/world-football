@@ -138,6 +138,21 @@ matches_future <- spi_matches_tidy %>%
 
 #' ### Recreating League Tables
 
+#' An interesting wrinkle is that some of these leagues are actually knockout tournaments, and we also have some match data for current seasons. I'd like to have a league reference table where I can quickly say whether a season is finished and whether it was a knockout tournament.
+#' 
+
+matches_past %>% 
+  group_by(league, season, team) %>% 
+  summarise(games_played = n_distinct(match_id)) %>% 
+  ungroup() %>%
+  group_by(league, season) %>% 
+  summarise(max_team_gms = max(games_played),
+            min_team_gms = min(games_played)) %>% 
+  filter(max_team_gms != min_team_gms) %>% 
+  head()
+
+#' Hmmmmm I'd hoped that looking at the descrepancy between max and min games played would tell me whether it was a tournament, but alot of genuine leagues have discrepancies in number of games played. I may just have to hard code that in. 
+
 season_results <- matches_past %>%
   group_by(league, season, team ) %>% 
   summarise(game_played = n(),
@@ -152,7 +167,7 @@ season_results %>%
   filter(league == "Barclays Premier League" & season == "2018-19") %>% 
   knitr::kable()
 
-#' An interesting wrinkle is that some of these leagues are actually knockout tournaments
+
 #' 
 #' ## Analysis Ideas
 #' - Predicting promotion and relegation

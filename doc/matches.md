@@ -205,10 +205,17 @@ spi_matches %>%
 
 ```r
 spi_matches2 <- spi_matches %>% 
-  mutate(season = add_season(date))
+  mutate(season = get_season(date))
 
 spi_matches_tidy <- spi_matches_combined %>% 
-  mutate(season = add_season(date))
+  mutate(season = get_season(date))
+  
+matches_past <- spi_matches_tidy %>% 
+  filter(!is.na(score))
+
+matches_future <- spi_matches_tidy %>% 
+  anti_join(matches_past %>% distinct(match_id), by = "match_id") %>% 
+  filter(date > lubridate::today())
 
 #saveRDS(spi_matches_tidy, "./data/fivethirtyeight/spi_matches_tidy.RDS")
 ```
@@ -220,6 +227,80 @@ Wow, tidying this data up was much more difficult than expected, but I think I'm
 - `result` - win, loss, or tie
 - `points` - 3 for a win, 1 for a tie, 0 for a loss
 - `season` - factors from 2014-15 to 2021-22
+### Recreating League Tables
+An interesting wrinkle is that some of these leagues are actually knockout tournaments, and we also have some match data for current seasons. I'd like to have a league reference table where I can quickly say whether a season is finished and whether it was a knockout tournament.
+
+
+
+```r
+matches_past %>% 
+  group_by(league, season, team) %>% 
+  summarise(games_played = n_distinct(match_id)) %>% 
+  ungroup() %>%
+  group_by(league, season) %>% 
+  summarise(max_team_gms = max(games_played),
+            min_team_gms = min(games_played)) %>% 
+  filter(max_team_gms != min_team_gms) %>% 
+  head()
+```
+
+```
+## # A tibble: 6 x 4
+## # Groups:   league [4]
+##   league                       season  max_team_gms min_team_gms
+##   <chr>                        <fct>          <dbl>        <dbl>
+## 1 Argentina Primera Division   2018-19            5            4
+## 2 Austrian T-Mobile Bundesliga 2017-18           35            1
+## 3 Brasileiro Série A           2016-17           17           16
+## 4 Brasileiro Série A           2017-18           38           15
+## 5 Brasileiro Série A           2018-19           10            9
+## 6 Chinese Super League         2018-19            9            8
+```
+
+Hmmmmm I'd hoped that looking at the descrepancy between max and min games played would tell me whether it was a tournament, but alot of genuine leagues have discrepancies in number of games played. I may just have to hard code that in. 
+
+
+```r
+season_results <- matches_past %>%
+  group_by(league, season, team ) %>% 
+  summarise(game_played = n(),
+            points = sum(match_points),
+            goal_diff = sum(diff_score, na.rm = TRUE)) %>% 
+  arrange(season, -points, -goal_diff) %>% 
+  ungroup() %>% 
+  group_by(league, season) %>% 
+  mutate(league_position = row_number(-points))
+
+season_results %>% 
+  filter(league == "Barclays Premier League" & season == "2018-19") %>% 
+  knitr::kable()
+```
+
+
+
+|league                  |season  |team                     | game_played| points| goal_diff| league_position|
+|:-----------------------|:-------|:------------------------|-----------:|------:|---------:|---------------:|
+|Barclays Premier League |2018-19 |Chelsea                  |           5|     15|        10|               1|
+|Barclays Premier League |2018-19 |Liverpool                |           5|     15|         9|               2|
+|Barclays Premier League |2018-19 |Manchester City          |           5|     13|        11|               3|
+|Barclays Premier League |2018-19 |Watford                  |           5|     12|         5|               4|
+|Barclays Premier League |2018-19 |AFC Bournemouth          |           5|     10|         3|               5|
+|Barclays Premier League |2018-19 |Tottenham Hotspur        |           5|      9|         4|               6|
+|Barclays Premier League |2018-19 |Arsenal                  |           5|      9|         1|               7|
+|Barclays Premier League |2018-19 |Manchester United        |           5|      9|         0|               8|
+|Barclays Premier League |2018-19 |Wolverhampton            |           5|      8|         0|               9|
+|Barclays Premier League |2018-19 |Everton                  |           5|      6|        -1|              10|
+|Barclays Premier League |2018-19 |Leicester City           |           5|      6|        -1|              11|
+|Barclays Premier League |2018-19 |Crystal Palace           |           5|      6|        -2|              12|
+|Barclays Premier League |2018-19 |Southampton              |           5|      5|         0|              13|
+|Barclays Premier League |2018-19 |Brighton and Hove Albion |           5|      5|        -2|              14|
+|Barclays Premier League |2018-19 |Fulham                   |           5|      4|        -5|              15|
+|Barclays Premier League |2018-19 |West Ham United          |           5|      3|        -6|              16|
+|Barclays Premier League |2018-19 |Cardiff City             |           5|      2|        -6|              17|
+|Barclays Premier League |2018-19 |Huddersfield Town        |           5|      2|        -9|              18|
+|Barclays Premier League |2018-19 |Newcastle                |           5|      1|        -4|              19|
+|Barclays Premier League |2018-19 |Burnley                  |           5|      1|        -7|              20|
+
 
 ## Analysis Ideas
 - Predicting promotion and relegation
