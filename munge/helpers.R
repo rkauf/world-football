@@ -41,7 +41,7 @@ comb_home_away <- function(first, second) {
   
 }
 
-add_season <- function(date_col)  {
+get_season <- function(date_col)  {
   cut(date_col, breaks = seq(ymd('2014-08-01'), ymd('2022-08-01'), by = '1 year'),
       labels = factor(c("2014-15","2015-16","2016-17","2017-18","2018-19","2019-20","2020-21","2021-22"
       )))

@@ -114,10 +114,17 @@ spi_matches %>%
   scale_y_continuous(labels = scales::comma, name = "Num Matches")
 
 spi_matches2 <- spi_matches %>% 
-  mutate(season = add_season(date))
+  mutate(season = get_season(date))
 
 spi_matches_tidy <- spi_matches_combined %>% 
-  mutate(season = add_season(date))
+  mutate(season = get_season(date))
+  
+matches_past <- spi_matches_tidy %>% 
+  filter(!is.na(score))
+
+matches_future <- spi_matches_tidy %>% 
+  anti_join(matches_past %>% distinct(match_id), by = "match_id") %>% 
+  filter(date > lubridate::today())
 
 #saveRDS(spi_matches_tidy, "./data/fivethirtyeight/spi_matches_tidy.RDS")
   
@@ -129,6 +136,23 @@ spi_matches_tidy <- spi_matches_combined %>%
 #' - `points` - 3 for a win, 1 for a tie, 0 for a loss
 #' - `season` - factors from 2014-15 to 2021-22
 
+#' ### Recreating League Tables
+
+season_results <- matches_past %>%
+  group_by(league, season, team ) %>% 
+  summarise(game_played = n(),
+            points = sum(match_points),
+            goal_diff = sum(diff_score, na.rm = TRUE)) %>% 
+  arrange(season, -points, -goal_diff) %>% 
+  ungroup() %>% 
+  group_by(league, season) %>% 
+  mutate(league_position = row_number(-points))
+
+season_results %>% 
+  filter(league == "Barclays Premier League" & season == "2018-19") %>% 
+  knitr::kable()
+
+#' An interesting wrinkle is that some of these leagues are actually knockout tournaments
 #' 
 #' ## Analysis Ideas
 #' - Predicting promotion and relegation
