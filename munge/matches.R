@@ -228,7 +228,7 @@ matches_past %>%
   theme_expapp() +
   scale_x_continuous(labels = scales::percent, name = "Actual Win % minus expected win %") +
   ylab("Count of League Seasons") +
-  ggtitle("Difference between Actual Home Win % and Expected", "By season, by league")
+  ggtitle("Difference between Actual Home Win % and Expected test", "By season, by league")
 
 #+ perf_v_expected, fig.height = 5, fig.width = 8
 league_seson_df <- matches_past %>% 
@@ -257,7 +257,7 @@ for (l in unique(league_seson_df$league_season)) {
     theme_expapp() +
     scale_x_continuous(labels = scales::percent, name = "Expected Win %") +
     scale_y_continuous(labels = scales::percent, name = "Actual - Expected") +
-    ggtitle(paste(l, "Expected Win Pct vs Actual"), "Overperformers above red line, underperformers below")
+    ggtitle(paste(l, "\nExpected Win Pct vs Actual"), "Overperformers above red line, underperformers below")
   
   print(perf_plot)
   
@@ -268,8 +268,9 @@ for (l in unique(league_seson_df$league_season)) {
 
 #' 
 #' ## Analysis Ideas
-#' - Predicting promotion and relegation
-#' - Classifying which games were played in neutral venues
-#' - Overperformers and underperformers
-#' - Predicting winners
-#' - How does time between previous game affect team performance?
+#' - Predicting promotion and relegation [ ]
+#' - Classifying which games were played in neutral venues [ ]
+#' - Lucky and unlcuck (expected record from goal diff vs actual record) [ ]
+#' - Overperformers and underperformers [x]
+#' - Predicting winners [ ]
+#' - How does time between previous game affect team performance? [ ]
