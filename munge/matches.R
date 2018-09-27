@@ -268,9 +268,9 @@ for (l in unique(league_seson_df$league_season)) {
 
 #' 
 #' ## Analysis Ideas
-#' - Predicting promotion and relegation [ ]
-#' - Classifying which games were played in neutral venues [ ]
-#' - Lucky and unlcuck (expected record from goal diff vs actual record) [ ]
-#' - Overperformers and underperformers [x]
-#' - Predicting winners [ ]
-#' - How does time between previous game affect team performance? [ ]
+#' - [ ] Predicting promotion and relegation
+#' - [ ] Classifying which games were played in neutral venues
+#' - [ ] Lucky and unlcuck (expected record from goal diff vs actual record)
+#' - [x] Overperformers and underperformers
+#' - [ ] Predicting winners
+#' - [ ] How does time between previous game affect team performance?
