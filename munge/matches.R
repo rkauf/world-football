@@ -52,7 +52,7 @@ spi_matches %>%
   filter(team_num == spi_num, team == "Manchester City") %>% 
   ggplot(aes(date, spi)) +
   geom_point(aes(color = team_num)) +
-  theme_fivethirtyeight() +
+  theme_expapp() +
   ggtitle("Manchester City's SPI Over Time")
 
 #' Okay, so the SPI is current as of the match and is changing. There also seem to be about an equal number of records with team num = 1 as there are for 2. Let's verify that team1 is the home team, real quick.
@@ -72,33 +72,23 @@ spi_matches %>%
 #' - Win or Loss
 #' - Should allow me to easily calculate difference between spi and opponent spi this way. Maybe I should just include the difference, not the actual opponent data?
 #' 
+home_teams <- spi_matches %>%
+  select(-contains("2")) %>% 
+  mutate(home = 1)
 
-these_cols <- c("spi", "prob", "proj_score", "importance", "score", "xg", "nsxg", "adj_score")
+names(home_teams) <- names(home_teams) %>% str_remove("[0-9]")
 
-home_teams <- spi_matches %>% 
-  gather(key, val,team1:adj_score2) %>% 
-  mutate(team_num = str_remove_all(key, "[^0-9]"),
-         key_adj = str_remove_all(key, "[0-9]")) %>% 
-  filter(team_num == 1) %>% 
-  select(-team_num, -key) %>% 
-  spread(key_adj, val) %>% 
-  mutate(home = 1) %>% 
-  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score) %>% 
-  mutate_at(these_cols, as.double) %>% 
-  mutate(score = as.integer(score))
+home_teams <- home_teams %>%
+  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score)
 
-away_teams <- spi_matches %>% 
-  gather(key, val,team1:adj_score2) %>% 
-  mutate(team_num = str_remove_all(key, "[^0-9]"),
-         key_adj = str_remove_all(key, "[0-9]")) %>% 
-  filter(team_num == 2) %>% 
-  select(-team_num, -key) %>% 
-  spread(key_adj, val) %>% 
-  mutate(home = 0) %>% 
-  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score) %>% 
-  mutate_at(these_cols, as.double) %>% 
-  mutate(score = as.integer(score))
+away_teams <- spi_matches %>%
+  select(-contains("1")) %>% 
+  mutate(home = 0)
 
+names(away_teams) <- names(away_teams) %>% str_remove("[0-9]")
+
+away_teams <- away_teams %>%
+  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score)
 
 spi_matches_combined <- comb_home_away(home_teams, away_teams)
 
@@ -109,7 +99,7 @@ spi_matches %>%
   count(year, month) %>% 
   ggplot(aes(month, n)) +
   geom_col() +
-  theme_fivethirtyeight() +
+  theme_expapp() +
   ggtitle("Total Matches by Month") +
   scale_y_continuous(labels = scales::comma, name = "Num Matches")
 
@@ -173,7 +163,7 @@ season_results %>%
   select(-league, -season) %>% 
   knitr::kable()
 
-#+ big_leagues
+#+ big_leagues, fig.height = 8, fig.width = 12
 big_leagues <- c("Barclays Premier League", "French Ligue 1", "German Bundesliga", "Portuguese Liga", "Spanish Primera Division", "Italy Serie A") # leaving out champions league given tournament style
 
 big_league_matches <- matches_past %>%
@@ -191,10 +181,50 @@ season_results %>%
   ggtitle("Winning Team Margin of Victory by Season") +
   ylab("Margin of Victory - Points") + 
   xlab("Team") +
-  theme_fivethirtyeight() +
+  theme_expapp() +
   scale_fill_discrete(name = "In big league?")
 
+#+ win_prob_home
+matches_past %>% 
+  group_by(league, season, home) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            med_win_prob = median(prob),
+            mean_win_prob = mean(prob)) %>% 
+  filter(home == 1, matches_played > 25) %>% select(-home) %>% 
+  mutate(league_season = paste(league, season)) %>% 
+  ggplot(aes(matches_played, med_win_prob)) +
+  geom_jitter(aes(color = season),size = 5, alpha = 0.7) +
+  xlab("Matches Played") +
+  ylab("Median Home Win %") +
+  ggtitle("Expected Home Team Win Probability by Season") +
+  theme_expapp() +
+  scale_y_continuous(labels = scales::percent)
 
+
+matches_past %>% 
+  group_by(league, season, home) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            med_win_prob = median(prob),
+            mean_win_prob = mean(prob)) %>% 
+  filter(home == 1, matches_played > 25) %>% select(-home) %>% 
+  mutate(league_season = paste(league, season)) %>% 
+  arrange(-med_win_prob) %>% 
+  head(10) %>% 
+  knitr::kable()
+
+#' Interesting, seems like there is a bit of a trend with MLS and the Brasilian league, fivethirtyeight's model expects them to win at home more often than other leagues. Next I'll compare this to reality - do they actually win at home more often?
+
+matches_past %>% 
+  group_by(league, season, home) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            med_win_prob = median(prob),
+            mean_win_prob = mean(prob),
+            actual_win_home = mean(match_result == "win")) %>% 
+  filter(home == 1, matches_played > 25) %>% 
+  mutate(act_less_exp = actual_win_home - med_win_prob) %>% 
+  ggplot(aes(act_less_exp)) +
+  geom_histogram(bins = 20) +
+  theme_expapp()
 
 #' 
 #' ## Analysis Ideas
