@@ -136,6 +136,7 @@ matches_future <- spi_matches_tidy %>%
 #' - `points` - 3 for a win, 1 for a tie, 0 for a loss
 #' - `season` - factors from 2014-15 to 2021-22
 
+#' # Exploratory Data Analysis
 #' ### Recreating League Tables
 
 #' An interesting wrinkle is that some of these leagues are actually knockout tournaments, and we also have some match data for current seasons. I'd like to have a league reference table where I can quickly say whether a season is finished and whether it was a knockout tournament.
@@ -154,23 +155,51 @@ matches_past %>%
 #' Hmmmmm I'd hoped that looking at the descrepancy between max and min games played would tell me whether it was a tournament, but alot of genuine leagues have discrepancies in number of games played. I may just have to hard code that in. 
 
 season_results <- matches_past %>%
+  filter(!(season %in% unique(matches_future$season))) %>% 
   group_by(league, season, team ) %>% 
   summarise(game_played = n(),
             points = sum(match_points),
             goal_diff = sum(diff_score, na.rm = TRUE)) %>% 
-  arrange(season, -points, -goal_diff) %>% 
   ungroup() %>% 
   group_by(league, season) %>% 
-  mutate(league_position = row_number(-points))
+  mutate(league_position = row_number(-points)) %>% 
+  arrange(league, season, -points, -goal_diff)
+
+#' ### EPL 17-18 Final Standings
+#+ epl1718, echo = F
+season_results %>% 
+  filter(league == "Barclays Premier League" & season == "2017-18") %>%
+  ungroup() %>% 
+  select(-league, -season) %>% 
+  knitr::kable()
+
+#+ big_leagues
+big_leagues <- c("Barclays Premier League", "French Ligue 1", "German Bundesliga", "Portuguese Liga", "Spanish Primera Division", "Italy Serie A") # leaving out champions league given tournament style
+
+big_league_matches <- matches_past %>%
+  filter(league %in% big_leagues, !(season %in% unique(matches_future$season))) ## removing incomplete seasons
 
 season_results %>% 
-  filter(league == "Barclays Premier League" & season == "2018-19") %>% 
-  knitr::kable()
+  #filter(league %in% big_leagues) %>% 
+  group_by(league, season) %>% 
+  mutate(pts_ahead = points - lead(points),
+         team_season = paste(team,season)) %>% 
+  filter(league_position == 1,game_played >= 20) %>% ## should get rid of junk seasons and tourney
+  ggplot(aes(reorder(team_season, pts_ahead), pts_ahead, fill = league %in% big_leagues)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Winning Team Margin of Victory by Season") +
+  ylab("Margin of Victory - Points") + 
+  xlab("Team") +
+  theme_fivethirtyeight() +
+  scale_fill_discrete(name = "In big league?")
+
 
 
 #' 
 #' ## Analysis Ideas
 #' - Predicting promotion and relegation
 #' - Classifying which games were played in neutral venues
+#' - Overperformers and underperformers
 #' - Predicting winners
 #' - How does time between previous game affect team performance?

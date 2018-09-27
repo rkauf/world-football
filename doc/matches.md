@@ -227,6 +227,7 @@ Wow, tidying this data up was much more difficult than expected, but I think I'm
 - `result` - win, loss, or tie
 - `points` - 3 for a win, 1 for a tie, 0 for a loss
 - `season` - factors from 2014-15 to 2021-22
+# Exploratory Data Analysis
 ### Recreating League Tables
 An interesting wrinkle is that some of these leagues are actually knockout tournaments, and we also have some match data for current seasons. I'd like to have a league reference table where I can quickly say whether a season is finished and whether it was a knockout tournament.
 
@@ -262,48 +263,71 @@ Hmmmmm I'd hoped that looking at the descrepancy between max and min games playe
 
 ```r
 season_results <- matches_past %>%
+  filter(!(season %in% unique(matches_future$season))) %>% 
   group_by(league, season, team ) %>% 
   summarise(game_played = n(),
             points = sum(match_points),
             goal_diff = sum(diff_score, na.rm = TRUE)) %>% 
-  arrange(season, -points, -goal_diff) %>% 
   ungroup() %>% 
   group_by(league, season) %>% 
-  mutate(league_position = row_number(-points))
-
-season_results %>% 
-  filter(league == "Barclays Premier League" & season == "2018-19") %>% 
-  knitr::kable()
+  mutate(league_position = row_number(-points)) %>% 
+  arrange(league, season, -points, -goal_diff)
 ```
 
+### EPL 17-18 Final Standings
 
 
-|league                  |season  |team                     | game_played| points| goal_diff| league_position|
-|:-----------------------|:-------|:------------------------|-----------:|------:|---------:|---------------:|
-|Barclays Premier League |2018-19 |Chelsea                  |           5|     15|        10|               1|
-|Barclays Premier League |2018-19 |Liverpool                |           5|     15|         9|               2|
-|Barclays Premier League |2018-19 |Manchester City          |           5|     13|        11|               3|
-|Barclays Premier League |2018-19 |Watford                  |           5|     12|         5|               4|
-|Barclays Premier League |2018-19 |AFC Bournemouth          |           5|     10|         3|               5|
-|Barclays Premier League |2018-19 |Tottenham Hotspur        |           5|      9|         4|               6|
-|Barclays Premier League |2018-19 |Arsenal                  |           5|      9|         1|               7|
-|Barclays Premier League |2018-19 |Manchester United        |           5|      9|         0|               8|
-|Barclays Premier League |2018-19 |Wolverhampton            |           5|      8|         0|               9|
-|Barclays Premier League |2018-19 |Everton                  |           5|      6|        -1|              10|
-|Barclays Premier League |2018-19 |Leicester City           |           5|      6|        -1|              11|
-|Barclays Premier League |2018-19 |Crystal Palace           |           5|      6|        -2|              12|
-|Barclays Premier League |2018-19 |Southampton              |           5|      5|         0|              13|
-|Barclays Premier League |2018-19 |Brighton and Hove Albion |           5|      5|        -2|              14|
-|Barclays Premier League |2018-19 |Fulham                   |           5|      4|        -5|              15|
-|Barclays Premier League |2018-19 |West Ham United          |           5|      3|        -6|              16|
-|Barclays Premier League |2018-19 |Cardiff City             |           5|      2|        -6|              17|
-|Barclays Premier League |2018-19 |Huddersfield Town        |           5|      2|        -9|              18|
-|Barclays Premier League |2018-19 |Newcastle                |           5|      1|        -4|              19|
-|Barclays Premier League |2018-19 |Burnley                  |           5|      1|        -7|              20|
+|team                     | game_played| points| goal_diff| league_position|
+|:------------------------|-----------:|------:|---------:|---------------:|
+|Manchester City          |          38|    100|        79|               1|
+|Manchester United        |          38|     81|        40|               2|
+|Tottenham Hotspur        |          38|     77|        38|               3|
+|Liverpool                |          38|     75|        46|               4|
+|Chelsea                  |          38|     70|        24|               5|
+|Arsenal                  |          38|     63|        23|               6|
+|Burnley                  |          38|     54|        -3|               7|
+|Everton                  |          38|     49|       -14|               8|
+|Leicester City           |          38|     47|        -4|               9|
+|Newcastle                |          38|     44|        -8|              12|
+|Crystal Palace           |          38|     44|       -10|              11|
+|AFC Bournemouth          |          38|     44|       -16|              10|
+|West Ham United          |          38|     42|       -20|              13|
+|Watford                  |          38|     41|       -20|              14|
+|Brighton and Hove Albion |          38|     40|       -20|              15|
+|Huddersfield Town        |          38|     37|       -30|              16|
+|Southampton              |          38|     36|       -19|              17|
+|Swansea City             |          38|     33|       -28|              19|
+|Stoke City               |          38|     33|       -33|              18|
+|West Bromwich Albion     |          38|     31|       -25|              20|
+
+```r
+big_leagues <- c("Barclays Premier League", "French Ligue 1", "German Bundesliga", "Portuguese Liga", "Spanish Primera Division", "Italy Serie A") # leaving out champions league given tournament style
+
+big_league_matches <- matches_past %>%
+  filter(league %in% big_leagues, !(season %in% unique(matches_future$season))) ## removing incomplete seasons
+
+season_results %>% 
+  #filter(league %in% big_leagues) %>% 
+  group_by(league, season) %>% 
+  mutate(pts_ahead = points - lead(points),
+         team_season = paste(team,season)) %>% 
+  filter(league_position == 1,game_played >= 20) %>% ## should get rid of junk seasons and tourney
+  ggplot(aes(reorder(team_season, pts_ahead), pts_ahead, fill = league %in% big_leagues)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Winning Team Margin of Victory by Season") +
+  ylab("Margin of Victory - Points") + 
+  xlab("Team") +
+  theme_fivethirtyeight() +
+  scale_fill_discrete(name = "In big league?")
+```
+
+![plot of chunk big_leagues](../graphs/matches//big_leagues-1.png)
 
 
 ## Analysis Ideas
 - Predicting promotion and relegation
 - Classifying which games were played in neutral venues
+- Overperformers and underperformers
 - Predicting winners
 - How does time between previous game affect team performance?
