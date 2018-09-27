@@ -230,25 +230,29 @@ matches_past %>%
   ylab("Count of League Seasons") +
   ggtitle("Difference between Actual Home Win % and Expected", "By season, by league")
 
-#+ perf_v_expected, fig.height = 10, fig.width = 10
+#+ perf_v_expected, fig.height = 5, fig.width = 8
 league_seson_df <- matches_past %>% 
   filter(!(season %in% unique(matches_future$season)), league %in% big_leagues) %>% 
   mutate(league_season = paste(league,season)) %>% 
-  distinct(league_season)
+  distinct(league_season) %>% 
+  arrange(league_season)
 
 for (l in unique(league_seson_df$league_season)) {
   perf_plot <- matches_past %>% 
     mutate(league_season = paste(league, season)) %>% 
     filter(!(season %in% unique(matches_future$season)), league_season == l) %>% 
-    group_by(league_season, league, season, team) %>% 
+    inner_join(season_results, by = c("season", "league", "team")) %>% 
+    group_by(league_season, league, season, team, league_position) %>% 
     summarise(matches_played = n_distinct(match_id),
               expected_win_pct = mean(prob),
               actual_win_pct = mean(match_result == "win")) %>% 
-    mutate(win_pct_diff = actual_win_pct - expected_win_pct) %>% 
+    mutate(win_pct_diff = actual_win_pct - expected_win_pct,
+           winner = league_position == 1) %>% 
     filter(matches_played > 15) %>% 
-    ggplot(aes(expected_win_pct, win_pct_diff, label = team)) +
-    geom_jitter(size = 3, alpha = 0.8) +
-    geom_text_repel() +
+    ggplot(aes(expected_win_pct, win_pct_diff, label = team, color = winner)) +
+    geom_jitter(size = 3, alpha = 0.8, show.legend = FALSE) +
+    scale_color_manual(values = c("black", "darkgreen")) +
+    geom_text_repel(show.legend = FALSE) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
     theme_expapp() +
     scale_x_continuous(labels = scales::percent, name = "Expected Win %") +
