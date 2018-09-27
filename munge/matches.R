@@ -8,6 +8,7 @@ library(tidymodels)
 library(expappr)
 library(ggthemes)
 library(lubridate)
+library(ggrepel)
 
 source("munge/helpers.R")
 
@@ -223,8 +224,33 @@ matches_past %>%
   filter(home == 1, matches_played > 25) %>% 
   mutate(act_less_exp = actual_win_home - med_win_prob) %>% 
   ggplot(aes(act_less_exp)) +
-  geom_histogram(bins = 20) +
-  theme_expapp()
+  geom_histogram(bins = 20, color = "white") +
+  theme_expapp() +
+  scale_x_continuous(labels = scales::percent, name = "Actual Win % minus expected win %") +
+  ylab("Count of League Seasons") +
+  ggtitle("Difference between Actual Home Win % and Expected", "By season, by league")
+
+#+ perf_v_expected, fig.height = 15, fig.width = 8
+matches_past %>% 
+  filter(!(season %in% unique(matches_future$season)), league %in% big_leagues) %>% 
+  mutate(league_season = paste(league, season)) %>% 
+  group_by(league_season, league, season, team) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            expected_win_pct = mean(prob),
+            actual_win_pct = mean(match_result == "win")) %>% 
+  mutate(win_pct_diff = actual_win_pct - expected_win_pct) %>% 
+  filter(matches_played > 15) %>% 
+  #filter(league == "Barclays Premier League", season == "2017-18") %>% 
+  ggplot(aes(expected_win_pct, win_pct_diff, label = team)) +
+  geom_jitter(size = 3, alpha = 0.8) +
+  geom_text_repel() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  theme_expapp() +
+  scale_x_continuous(labels = scales::percent, name = "Expected Win %") +
+  scale_y_continuous(labels = scales::percent, name = "Actual - Expected") + 
+  ggtitle("Expected Win Pct vs Actual", "Overperformers above red line, underperformers below") +
+  facet_wrap(~ league_season, ncol = 2)
+
 
 #' 
 #' ## Analysis Ideas

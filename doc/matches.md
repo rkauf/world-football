@@ -9,6 +9,7 @@ library(tidymodels)
 library(expappr)
 library(ggthemes)
 library(lubridate)
+library(ggrepel)
 
 source("munge/helpers.R")
 ```
@@ -115,7 +116,7 @@ spi_matches %>%
   filter(team_num == spi_num, team == "Manchester City") %>% 
   ggplot(aes(date, spi)) +
   geom_point(aes(color = team_num)) +
-  theme_fivethirtyeight() +
+  theme_expapp() +
   ggtitle("Manchester City's SPI Over Time")
 ```
 
@@ -160,32 +161,23 @@ Given the nastiness cleaning with team numbers above, I'll probably want to crea
 
 
 ```r
-these_cols <- c("spi", "prob", "proj_score", "importance", "score", "xg", "nsxg", "adj_score")
+home_teams <- spi_matches %>%
+  select(-contains("2")) %>% 
+  mutate(home = 1)
 
-home_teams <- spi_matches %>% 
-  gather(key, val,team1:adj_score2) %>% 
-  mutate(team_num = str_remove_all(key, "[^0-9]"),
-         key_adj = str_remove_all(key, "[0-9]")) %>% 
-  filter(team_num == 1) %>% 
-  select(-team_num, -key) %>% 
-  spread(key_adj, val) %>% 
-  mutate(home = 1) %>% 
-  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score) %>% 
-  mutate_at(these_cols, as.double) %>% 
-  mutate(score = as.integer(score))
+names(home_teams) <- names(home_teams) %>% str_remove("[0-9]")
 
-away_teams <- spi_matches %>% 
-  gather(key, val,team1:adj_score2) %>% 
-  mutate(team_num = str_remove_all(key, "[^0-9]"),
-         key_adj = str_remove_all(key, "[0-9]")) %>% 
-  filter(team_num == 2) %>% 
-  select(-team_num, -key) %>% 
-  spread(key_adj, val) %>% 
-  mutate(home = 0) %>% 
-  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score) %>% 
-  mutate_at(these_cols, as.double) %>% 
-  mutate(score = as.integer(score))
+home_teams <- home_teams %>%
+  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score)
 
+away_teams <- spi_matches %>%
+  select(-contains("1")) %>% 
+  mutate(home = 0)
+
+names(away_teams) <- names(away_teams) %>% str_remove("[0-9]")
+
+away_teams <- away_teams %>%
+  select(match_id, date, league, league_id, team, home, spi, prob, proj_score, importance, score, xg, nsxg, adj_score)
 
 spi_matches_combined <- comb_home_away(home_teams, away_teams)
 
@@ -196,7 +188,7 @@ spi_matches %>%
   count(year, month) %>% 
   ggplot(aes(month, n)) +
   geom_col() +
-  theme_fivethirtyeight() +
+  theme_expapp() +
   ggtitle("Total Matches by Month") +
   scale_y_continuous(labels = scales::comma, name = "Num Matches")
 ```
@@ -318,11 +310,104 @@ season_results %>%
   ggtitle("Winning Team Margin of Victory by Season") +
   ylab("Margin of Victory - Points") + 
   xlab("Team") +
-  theme_fivethirtyeight() +
+  theme_expapp() +
   scale_fill_discrete(name = "In big league?")
 ```
 
 ![plot of chunk big_leagues](../graphs/matches//big_leagues-1.png)
+
+```r
+matches_past %>% 
+  group_by(league, season, home) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            med_win_prob = median(prob),
+            mean_win_prob = mean(prob)) %>% 
+  filter(home == 1, matches_played > 25) %>% select(-home) %>% 
+  mutate(league_season = paste(league, season)) %>% 
+  ggplot(aes(matches_played, med_win_prob)) +
+  geom_jitter(aes(color = season),size = 5, alpha = 0.7) +
+  xlab("Matches Played") +
+  ylab("Median Home Win %") +
+  ggtitle("Expected Home Team Win Probability by Season") +
+  theme_expapp() +
+  scale_y_continuous(labels = scales::percent)
+```
+
+![plot of chunk win_prob_home](../graphs/matches//win_prob_home-1.png)
+
+```r
+matches_past %>% 
+  group_by(league, season, home) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            med_win_prob = median(prob),
+            mean_win_prob = mean(prob)) %>% 
+  filter(home == 1, matches_played > 25) %>% select(-home) %>% 
+  mutate(league_season = paste(league, season)) %>% 
+  arrange(-med_win_prob) %>% 
+  head(10) %>% 
+  knitr::kable()
+```
+
+
+
+|league                         |season  | matches_played| med_win_prob| mean_win_prob|league_season                          |
+|:------------------------------|:-------|--------------:|------------:|-------------:|:--------------------------------------|
+|Major League Soccer            |2018-19 |             81|      0.52910|     0.5113531|Major League Soccer 2018-19            |
+|Major League Soccer            |2017-18 |            400|      0.50370|     0.5024210|Major League Soccer 2017-18            |
+|Major League Soccer            |2016-17 |            237|      0.49660|     0.4772966|Major League Soccer 2016-17            |
+|Brasileiro Série A             |2017-18 |            368|      0.48985|     0.4885329|Brasileiro Série A 2017-18             |
+|National Women's Soccer League |2016-17 |             74|      0.48905|     0.4491905|National Women's Soccer League 2016-17 |
+|Brasileiro Série A             |2018-19 |             92|      0.48765|     0.4960076|Brasileiro Série A 2018-19             |
+|Brasileiro Série A             |2016-17 |            169|      0.48320|     0.4877994|Brasileiro Série A 2016-17             |
+|Norwegian Tippeligaen          |2016-17 |            134|      0.47810|     0.4698963|Norwegian Tippeligaen 2016-17          |
+|Spanish Primera Division       |2017-18 |            380|      0.47680|     0.4852058|Spanish Primera Division 2017-18       |
+|Chinese Super League           |2018-19 |             65|      0.47670|     0.4598246|Chinese Super League 2018-19           |
+
+Interesting, seems like there is a bit of a trend with MLS and the Brasilian league, fivethirtyeight's model expects them to win at home more often than other leagues. Next I'll compare this to reality - do they actually win at home more often?
+
+
+```r
+matches_past %>% 
+  group_by(league, season, home) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            med_win_prob = median(prob),
+            mean_win_prob = mean(prob),
+            actual_win_home = mean(match_result == "win")) %>% 
+  filter(home == 1, matches_played > 25) %>% 
+  mutate(act_less_exp = actual_win_home - med_win_prob) %>% 
+  ggplot(aes(act_less_exp)) +
+  geom_histogram(bins = 20, color = "white") +
+  theme_expapp() +
+  scale_x_continuous(labels = scales::percent, name = "Actual Win % minus expected win %") +
+  ylab("Count of League Seasons") +
+  ggtitle("Difference between Actual Home Win % and Expected", "By season, by league")
+```
+
+![plot of chunk unnamed-chunk-8](../graphs/matches//unnamed-chunk-8-1.png)
+
+```r
+matches_past %>% 
+  filter(!(season %in% unique(matches_future$season)), league %in% big_leagues) %>% 
+  mutate(league_season = paste(league, season)) %>% 
+  group_by(league_season, league, season, team) %>% 
+  summarise(matches_played = n_distinct(match_id),
+            expected_win_pct = mean(prob),
+            actual_win_pct = mean(match_result == "win")) %>% 
+  mutate(win_pct_diff = actual_win_pct - expected_win_pct) %>% 
+  filter(matches_played > 15) %>% 
+  #filter(league == "Barclays Premier League", season == "2017-18") %>% 
+  ggplot(aes(expected_win_pct, win_pct_diff, label = team)) +
+  geom_jitter(size = 3, alpha = 0.8) +
+  geom_text_repel() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  theme_expapp() +
+  scale_x_continuous(labels = scales::percent, name = "Expected Win %") +
+  scale_y_continuous(labels = scales::percent, name = "Actual - Expected") + 
+  ggtitle("Expected Win Pct vs Actual", "Overperformers above red line, underperformers below") +
+  facet_wrap(~ league_season, ncol = 2)
+```
+
+![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-1.png)
 
 
 ## Analysis Ideas
