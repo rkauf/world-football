@@ -386,28 +386,36 @@ matches_past %>%
 ![plot of chunk unnamed-chunk-8](../graphs/matches//unnamed-chunk-8-1.png)
 
 ```r
-matches_past %>% 
+league_seson_df <- matches_past %>% 
   filter(!(season %in% unique(matches_future$season)), league %in% big_leagues) %>% 
-  mutate(league_season = paste(league, season)) %>% 
-  group_by(league_season, league, season, team) %>% 
-  summarise(matches_played = n_distinct(match_id),
-            expected_win_pct = mean(prob),
-            actual_win_pct = mean(match_result == "win")) %>% 
-  mutate(win_pct_diff = actual_win_pct - expected_win_pct) %>% 
-  filter(matches_played > 15) %>% 
-  #filter(league == "Barclays Premier League", season == "2017-18") %>% 
-  ggplot(aes(expected_win_pct, win_pct_diff, label = team)) +
-  geom_jitter(size = 3, alpha = 0.8) +
-  geom_text_repel() +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  theme_expapp() +
-  scale_x_continuous(labels = scales::percent, name = "Expected Win %") +
-  scale_y_continuous(labels = scales::percent, name = "Actual - Expected") + 
-  ggtitle("Expected Win Pct vs Actual", "Overperformers above red line, underperformers below") +
-  facet_wrap(~ league_season, ncol = 2)
+  mutate(league_season = paste(league,season)) %>% 
+  distinct(league_season)
+
+for (l in unique(league_seson_df$league_season)) {
+  perf_plot <- matches_past %>% 
+    mutate(league_season = paste(league, season)) %>% 
+    filter(!(season %in% unique(matches_future$season)), league_season == l) %>% 
+    group_by(league_season, league, season, team) %>% 
+    summarise(matches_played = n_distinct(match_id),
+              expected_win_pct = mean(prob),
+              actual_win_pct = mean(match_result == "win")) %>% 
+    mutate(win_pct_diff = actual_win_pct - expected_win_pct) %>% 
+    filter(matches_played > 15) %>% 
+    ggplot(aes(expected_win_pct, win_pct_diff, label = team)) +
+    geom_jitter(size = 3, alpha = 0.8) +
+    geom_text_repel() +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    theme_expapp() +
+    scale_x_continuous(labels = scales::percent, name = "Expected Win %") +
+    scale_y_continuous(labels = scales::percent, name = "Actual - Expected") +
+    ggtitle(paste(l, "Expected Win Pct vs Actual"), "Overperformers above red line, underperformers below")
+  
+  print(perf_plot)
+  
+}
 ```
 
-![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-1.png)
+![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-1.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-2.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-3.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-4.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-5.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-6.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-7.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-8.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-9.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-10.png)![plot of chunk perf_v_expected](../graphs/matches//perf_v_expected-11.png)
 
 
 ## Analysis Ideas
